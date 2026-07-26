@@ -201,12 +201,24 @@ function render(){
   const t=document.getElementById("times"); t.innerHTML="";
   TIMES.forEach(([lbl,v])=>t.appendChild(chip(lbl,state.time===v,()=>{state.time=v;render();})));
 }
-function fileToBase64(file){
+function fileToResizedBase64(file, maxDim=1024, quality=0.82){
   return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result.split(",")[1]);
-    reader.onerror=reject;
-    reader.readAsDataURL(file);
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      let {width,height}=img;
+      if(width>maxDim||height>maxDim){
+        const scale=Math.min(maxDim/width, maxDim/height);
+        width=Math.round(width*scale); height=Math.round(height*scale);
+      }
+      const canvas=document.createElement("canvas");
+      canvas.width=width; canvas.height=height;
+      canvas.getContext("2d").drawImage(img,0,0,width,height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg",quality).split(",")[1]);
+    };
+    img.onerror=(e)=>{ URL.revokeObjectURL(url); reject(e); };
+    img.src=url;
   });
 }
 async function scanFridge(event){
@@ -215,12 +227,13 @@ async function scanFridge(event){
   if(!file){ return; }
   status.innerHTML='<span class="spinner"></span>Reading photo…';
   try{
-    const b64=await fileToBase64(file);
+    const b64=await fileToResizedBase64(file);
     status.innerHTML='<span class="spinner"></span>Scanning fridge…';
     const resp=await fetch("/analyze-fridge",{
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({image:b64, mimeType:file.type||"image/jpeg"})
+      body:JSON.stringify({image:b64, mimeType:"image/jpeg"})
     });
+    if(!resp.ok){ status.textContent=`Scan failed (HTTP ${resp.status}) — try a smaller or clearer photo.`; return; }
     const data=await resp.json();
     if(data.error){ status.textContent=data.error; return; }
     const found=data.ingredients||[];
