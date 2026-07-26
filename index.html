@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Adige — South Indian Veg Recipe Suggester</title>
+<title>Adige — South Indian Recipe Suggester (Veg &amp; Non-Veg)</title>
 <style>
   :root{
     --bg:#F3F6EC; --surface:#FFFFFF; --ink:#26301F; --muted:#6B7461;
@@ -38,6 +38,8 @@
   .meta{display:flex; gap:8px; flex-wrap:wrap; font-size:12px;}
   .tag{background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:2px 8px; color:var(--muted);}
   .tag.match{background:#FBEFD6; border-color:var(--turmeric); color:#7A5A0E; font-weight:700;}
+  .tag.veg{background:#EAF4E7; border-color:var(--leaf); color:var(--leaf-dark); font-weight:700;}
+  .tag.nonveg{background:#FBE7E2; border-color:var(--chili); color:var(--chili); font-weight:700;}
   .ing{font-size:13.5px; color:var(--ink);}
   .ing b{color:var(--leaf);}
   details{font-size:14px;}
@@ -55,18 +57,29 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">South Indian &middot; Vegetarian</div>
+    <div class="eyebrow">South Indian &middot; Veg &amp; Non-Veg</div>
     <h1>Adige &mdash; What shall we cook today?</h1>
-    <p class="sub">Pick what's in your pantry and how much time you have. The suggester ranks recipes by ingredient match &mdash; or describe what you have and let Claude invent something.</p>
+    <p class="sub">Pick what's in your pantry, your diet preference, and how much time you have. The suggester ranks recipes by ingredient match &mdash; or describe what you have and let Claude invent something.</p>
   </header>
 
   <div class="panel">
     <h2>In your pantry</h2>
     <div class="chips" id="pantry"></div>
+    <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <label for="fridgePhoto" class="ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; margin:0;">
+        📷 Scan your fridge
+      </label>
+      <input type="file" accept="image/*" capture="environment" id="fridgePhoto" style="display:none;" onchange="scanFridge(event)">
+      <span id="fridgeStatus" style="font-size:13px; color:var(--muted);"></span>
+    </div>
   </div>
 
   <div class="panel">
     <div class="filters">
+      <div class="fgroup">
+        <h2>Diet</h2>
+        <div class="chips" id="diets"></div>
+      </div>
       <div class="fgroup">
         <h2>Meal</h2>
         <div class="chips" id="meals"></div>
@@ -87,8 +100,8 @@
   <div class="grid" id="results"></div>
 
   <div class="panel ai" style="margin-top:26px;">
-    <h2>Ask Claude for a custom recipe</h2>
-    <p style="font-size:14px; color:var(--muted); margin-bottom:10px;">Describe what you have or what you're craving &mdash; e.g. "half a cabbage, leftover rice, and coconut" or "something light for dinner, no onion."</p>
+    <h2>Ask AI for a custom recipe</h2>
+    <p style="font-size:14px; color:var(--muted); margin-bottom:10px;">Describe what you have or what you're craving &mdash; e.g. "half a cabbage, leftover rice, and coconut" or "chicken, curry leaves, something for dinner." Mention "vegetarian" or "no eggs" if that matters to you.</p>
     <textarea id="aiInput" placeholder="What's in the fridge?"></textarea>
     <div style="margin-top:10px;">
       <button class="primary" id="aiBtn" onclick="askClaude()">Get AI suggestions</button>
@@ -99,59 +112,78 @@
 
 <script>
 const RECIPES = [
- {n:"Tomato Rasam", k:"Saaru", meal:"Lunch/Dinner", min:25, ing:["tomato","toor dal","tamarind","rasam powder","curry leaves","garlic"],
+ {n:"Tomato Rasam", k:"Saaru", meal:"Lunch/Dinner", min:25, diet:"veg", ing:["tomato","toor dal","tamarind","rasam powder","curry leaves","garlic"],
   steps:["Pressure-cook toor dal until soft; mash.","Boil chopped tomatoes with tamarind water, salt, rasam powder.","Add dal, dilute, simmer 5 min — don't boil hard.","Temper mustard, cumin, garlic, curry leaves in ghee; add coriander."]},
- {n:"Bisi Bele Bath", k:"Bisi bele huli anna", meal:"Lunch/Dinner", min:50, ing:["rice","toor dal","tamarind","mixed vegetables","bisi bele powder","peanuts"],
+ {n:"Bisi Bele Bath", k:"Bisi bele huli anna", meal:"Lunch/Dinner", min:50, diet:"veg", ing:["rice","toor dal","tamarind","mixed vegetables","bisi bele powder","peanuts"],
   steps:["Cook rice and toor dal together, slightly mushy.","Boil vegetables in tamarind water with bisi bele bath powder.","Combine with rice-dal, add jaggery, simmer to porridge consistency.","Temper with ghee, mustard, peanuts, curry leaves, cashews."]},
- {n:"Cabbage Palya", k:"Kosu palya", meal:"Lunch/Dinner", min:20, ing:["cabbage","coconut","green chili","curry leaves","chana dal"],
+ {n:"Cabbage Palya", k:"Kosu palya", meal:"Lunch/Dinner", min:20, diet:"veg", ing:["cabbage","coconut","green chili","curry leaves","chana dal"],
   steps:["Temper mustard, urad and chana dal, chilies, curry leaves.","Add shredded cabbage, salt, splash of water; cover and cook 8–10 min.","Finish with fresh grated coconut."]},
- {n:"Beans Palya", k:"Huralikayi palya", meal:"Lunch/Dinner", min:25, ing:["green beans","coconut","green chili","curry leaves"],
+ {n:"Beans Palya", k:"Huralikayi palya", meal:"Lunch/Dinner", min:25, diet:"veg", ing:["green beans","coconut","green chili","curry leaves"],
   steps:["Temper mustard, urad dal, chilies, curry leaves.","Add finely chopped beans, salt; steam covered until tender.","Toss with grated coconut."]},
- {n:"Sambar", k:"Huli", meal:"Lunch/Dinner", min:40, ing:["toor dal","tamarind","sambar powder","mixed vegetables","tomato","onion"],
+ {n:"Sambar", k:"Huli", meal:"Lunch/Dinner", min:40, diet:"veg", ing:["toor dal","tamarind","sambar powder","mixed vegetables","tomato","onion"],
   steps:["Cook toor dal; mash smooth.","Simmer vegetables in tamarind water with sambar powder and salt.","Add dal, jaggery; simmer 10 min.","Temper mustard, fenugreek, hing, curry leaves."]},
- {n:"Ragi Mudde", k:"Ragi mudde", meal:"Lunch/Dinner", min:25, ing:["ragi flour"],
+ {n:"Ragi Mudde", k:"Ragi mudde", meal:"Lunch/Dinner", min:25, diet:"veg", ing:["ragi flour"],
   steps:["Boil water with salt and a spoon of ragi slurry.","Add ragi flour in one mound; leave undisturbed 3–4 min on low.","Stir vigorously with a strong spatula until lump-free.","Shape into balls with wet hands; serve with saaru."]},
- {n:"Khara Pongal", k:"Huggi", meal:"Tiffin", min:30, ing:["rice","moong dal","pepper","cumin","ginger","cashews","ghee"],
+ {n:"Khara Pongal", k:"Huggi", meal:"Tiffin", min:30, diet:"veg", ing:["rice","moong dal","pepper","cumin","ginger","cashews","ghee"],
   steps:["Dry-roast moong dal lightly; pressure-cook with rice, extra water.","Temper crushed pepper, cumin, ginger, cashews, curry leaves in ghee.","Fold into the mash; salt to taste. Serve with gotsu or chutney."]},
- {n:"Rava Idli", k:"Rave idli", meal:"Tiffin", min:35, ing:["rava","yogurt","carrot","cashews","curry leaves","eno"],
+ {n:"Rava Idli", k:"Rave idli", meal:"Tiffin", min:35, diet:"veg", ing:["rava","yogurt","carrot","cashews","curry leaves","eno"],
   steps:["Roast rava with a tempering of mustard, chana dal, cashews, curry leaves.","Cool; mix with yogurt, salt, grated carrot, coriander. Rest 15 min.","Add Eno, steam 12 min. Serve with coconut chutney."]},
- {n:"Masala Dosa", k:"Masale dose", meal:"Tiffin", min:40, ing:["dosa batter","potato","onion","turmeric","green chili"],
+ {n:"Masala Dosa", k:"Masale dose", meal:"Tiffin", min:40, diet:"veg", ing:["dosa batter","potato","onion","turmeric","green chili"],
   steps:["Make palya: temper mustard/chana dal, sauté onions, chilies, turmeric; add boiled crushed potatoes.","Spread dosa thin on hot tawa, drizzle ghee.","Add red chutney (optional) and potato palya; fold crisp."]},
- {n:"Vegetable Upma", k:"Uppittu", meal:"Tiffin", min:20, ing:["rava","onion","carrot","green chili","ginger","curry leaves"],
+ {n:"Vegetable Upma", k:"Uppittu", meal:"Tiffin", min:20, diet:"veg", ing:["rava","onion","carrot","green chili","ginger","curry leaves"],
   steps:["Roast rava until aromatic; set aside.","Temper mustard, urad/chana dal; sauté onion, ginger, chilies, veggies.","Add 2.5x hot water, salt; rain in rava stirring.","Cover 2 min; finish with ghee, coconut, lemon."]},
- {n:"Lemon Rice", k:"Chitranna", meal:"Lunch/Dinner", min:15, ing:["rice","lemon","peanuts","turmeric","green chili","curry leaves"],
+ {n:"Lemon Rice", k:"Chitranna", meal:"Lunch/Dinner", min:15, diet:"veg", ing:["rice","lemon","peanuts","turmeric","green chili","curry leaves"],
   steps:["Temper mustard, chana/urad dal, peanuts, chilies, turmeric, curry leaves.","Toss with cooked rice and salt off heat.","Squeeze lemon; garnish with coriander and coconut."]},
- {n:"Puliyogare", k:"Puliyogare", meal:"Lunch/Dinner", min:30, ing:["rice","tamarind","peanuts","puliyogare powder","jaggery","sesame"],
+ {n:"Puliyogare", k:"Puliyogare", meal:"Lunch/Dinner", min:30, diet:"veg", ing:["rice","tamarind","peanuts","puliyogare powder","jaggery","sesame"],
   steps:["Simmer thick tamarind extract with salt, jaggery, powder until gojju thickens.","Temper peanuts, chilies, hing, curry leaves in sesame oil.","Mix gojju + tempering into rice; rest 20 min before serving."]},
- {n:"Curd Rice", k:"Mosaranna", meal:"Lunch/Dinner", min:10, ing:["rice","yogurt","milk","ginger","pomegranate","curry leaves"],
+ {n:"Curd Rice", k:"Mosaranna", meal:"Lunch/Dinner", min:10, diet:"veg", ing:["rice","yogurt","milk","ginger","pomegranate","curry leaves"],
   steps:["Mash warm rice with a little milk; cool, fold in yogurt and salt.","Temper mustard, urad dal, ginger, chilies, curry leaves.","Garnish with pomegranate, grapes, or coriander."]},
- {n:"Akki Rotti", k:"Akki rotti", meal:"Tiffin", min:30, ing:["rice flour","onion","dill","carrot","green chili","coconut"],
+ {n:"Akki Rotti", k:"Akki rotti", meal:"Tiffin", min:30, diet:"veg", ing:["rice flour","onion","dill","carrot","green chili","coconut"],
   steps:["Mix rice flour with chopped onion, dill, carrot, chilies, coconut, salt, hot water into soft dough.","Pat onto greased tawa or banana leaf; make a few holes, drizzle oil.","Cook covered until crisp-bottomed; flip briefly. Serve with chutney."]},
- {n:"Avial", k:"Avial", meal:"Lunch/Dinner", min:35, ing:["mixed vegetables","coconut","yogurt","cumin","coconut oil","curry leaves"],
+ {n:"Avial", k:"Avial", meal:"Lunch/Dinner", min:35, diet:"veg", ing:["mixed vegetables","coconut","yogurt","cumin","coconut oil","curry leaves"],
   steps:["Cook batons of veg (drumstick, carrot, beans, raw banana) with turmeric.","Grind coconut + cumin + green chili coarse; add with beaten yogurt.","Warm gently; finish with raw coconut oil and curry leaves."]},
- {n:"Majjige Huli", k:"Majjige huli", meal:"Lunch/Dinner", min:30, ing:["yogurt","coconut","ash gourd","green chili","chana dal","cumin"],
+ {n:"Majjige Huli", k:"Majjige huli", meal:"Lunch/Dinner", min:30, diet:"veg", ing:["yogurt","coconut","ash gourd","green chili","chana dal","cumin"],
   steps:["Cook ash gourd (or chayote) until translucent.","Grind soaked chana dal, coconut, cumin, chilies; simmer with the veg.","Off heat, whisk in sour yogurt; temper mustard and curry leaves."]},
- {n:"Vegetable Kootu", k:"Kootu", meal:"Lunch/Dinner", min:30, ing:["moong dal","mixed vegetables","coconut","cumin","pepper"],
+ {n:"Vegetable Kootu", k:"Kootu", meal:"Lunch/Dinner", min:30, diet:"veg", ing:["moong dal","mixed vegetables","coconut","cumin","pepper"],
   steps:["Cook moong dal and chopped veg (chayote/snake gourd) with turmeric.","Grind coconut, cumin, pepper; add and simmer.","Temper mustard, urad dal, curry leaves in coconut oil."]},
- {n:"Paneer Ghee Roast", k:"Paneer ghee roast", meal:"Lunch/Dinner", min:35, ing:["paneer","ghee","byadgi chili","tamarind","garlic","yogurt"],
+ {n:"Paneer Ghee Roast", k:"Paneer ghee roast", meal:"Lunch/Dinner", min:35, diet:"veg", ing:["paneer","ghee","byadgi chili","tamarind","garlic","yogurt"],
   steps:["Marinate paneer in yogurt, turmeric, salt.","Grind roasted byadgi chilies, garlic, spices with tamarind.","Roast masala in ghee until it darkens and releases oil; toss paneer through."]},
- {n:"Vermicelli Upma", k:"Shavige uppittu", meal:"Tiffin", min:15, ing:["vermicelli","onion","carrot","green chili","curry leaves","lemon"],
+ {n:"Vermicelli Upma", k:"Shavige uppittu", meal:"Tiffin", min:15, diet:"veg", ing:["vermicelli","onion","carrot","green chili","curry leaves","lemon"],
   steps:["Roast vermicelli golden; set aside.","Temper and sauté onion, veg, chilies.","Add water, salt; stir in vermicelli, cover 3 min. Finish with lemon."]},
- {n:"Rava Kesari", k:"Kesari bath", meal:"Sweet", min:20, ing:["rava","sugar","ghee","saffron","cashews","cardamom"],
+ {n:"Rava Kesari", k:"Kesari bath", meal:"Sweet", min:20, diet:"veg", ing:["rava","sugar","ghee","saffron","cashews","cardamom"],
   steps:["Roast rava in generous ghee with cashews and raisins.","Add hot water (2.5x); cook until absorbed.","Stir in sugar, saffron, cardamom; cook until it leaves the pan glossy."]},
- {n:"Hesaru Bele Payasa", k:"Payasa", meal:"Sweet", min:35, ing:["moong dal","jaggery","coconut milk","cardamom","cashews","ghee"],
+ {n:"Hesaru Bele Payasa", k:"Payasa", meal:"Sweet", min:35, diet:"veg", ing:["moong dal","jaggery","coconut milk","cardamom","cashews","ghee"],
   steps:["Roast moong dal in ghee; pressure-cook until soft.","Melt jaggery in a little water; add to dal.","Add thin then thick coconut milk, cardamom; don't boil after thick milk. Garnish with fried cashews."]},
- {n:"Maddur Vada", k:"Maddur vade", meal:"Snack", min:35, ing:["rava","rice flour","maida","onion","curry leaves","green chili"],
+ {n:"Maddur Vada", k:"Maddur vade", meal:"Snack", min:35, diet:"veg", ing:["rava","rice flour","maida","onion","curry leaves","green chili"],
   steps:["Mix rava, rice flour, maida with onion, chilies, curry leaves, hot oil, salt.","Bind with minimal water into stiff dough; pat into discs.","Shallow- or deep-fry on medium until deep golden and crisp."]},
- {n:"Coconut Chutney", k:"Kayi chutney", meal:"Side", min:10, ing:["coconut","roasted gram","green chili","ginger","curry leaves"],
-  steps:["Grind coconut, roasted gram, chilies, ginger, salt with water.","Temper mustard, urad dal, hing, curry leaves; pour over."]}
+ {n:"Coconut Chutney", k:"Kayi chutney", meal:"Side", min:10, diet:"veg", ing:["coconut","roasted gram","green chili","ginger","curry leaves"],
+  steps:["Grind coconut, roasted gram, chilies, ginger, salt with water.","Temper mustard, urad dal, hing, curry leaves; pour over."]},
+ {n:"Chettinad Chicken Curry", k:"Kozhi chettinad", meal:"Lunch/Dinner", min:45, diet:"non-veg", ing:["chicken","onion","tomato","coconut","chettinad masala","curry leaves"],
+  steps:["Marinate chicken with turmeric and salt.","Roast and grind coconut with chettinad spices (fennel, star anise, dry chili).","Sauté onion and tomato until soft; add ground masala, fry until oil separates.","Add chicken, simmer covered until cooked through; finish with curry leaves."]},
+ {n:"Meen Kuzhambu", k:"Meen kuzhambu", meal:"Lunch/Dinner", min:35, diet:"non-veg", ing:["fish","tamarind","sambar powder","onion","tomato","curry leaves"],
+  steps:["Simmer tamarind water with sambar/fish curry powder, onion, tomato.","Slide in fish pieces gently; do not stir hard.","Simmer until fish is just cooked and gravy thickens.","Temper mustard, fenugreek, curry leaves in gingelly oil; pour over. Tastes best the next day."]},
+ {n:"Chicken Sukka", k:"Koli sukka", meal:"Lunch/Dinner", min:40, diet:"non-veg", ing:["chicken","coconut","byadgi chili","coriander seeds","garlic","curry leaves"],
+  steps:["Dry-roast coriander seeds, byadgi chili, coconut; grind coarse with garlic.","Sauté onion until golden; add chicken, cook through.","Stir in the ground masala; roast on low, stirring, until dry and coated.","Finish with curry leaves and a dash of coconut oil."]},
+ {n:"Fish Moilee", k:"Meen moilee", meal:"Lunch/Dinner", min:30, diet:"non-veg", ing:["fish","coconut milk","onion","ginger","green chili","curry leaves","turmeric"],
+  steps:["Sauté sliced onion, ginger, green chili, curry leaves in coconut oil until soft.","Add turmeric and thin coconut milk; simmer.","Add fish pieces, cook gently until just done.","Stir in thick coconut milk off heat; do not boil hard."]},
+ {n:"Andhra Chicken Curry", k:"Kodi kura", meal:"Lunch/Dinner", min:40, diet:"non-veg", ing:["chicken","onion","tomato","red chili powder","garam masala","curry leaves"],
+  steps:["Sauté onion until deep golden; add ginger-garlic paste.","Add tomato, red chili powder, garam masala; cook until oil separates.","Add chicken, sear a few minutes, then simmer covered until tender.","Finish with curry leaves and fresh coriander."]},
+ {n:"Kerala Egg Curry", k:"Mutta curry", meal:"Lunch/Dinner", min:25, diet:"non-veg", ing:["eggs","coconut milk","onion","tomato","ginger","garlic","curry leaves"],
+  steps:["Hard-boil eggs; set aside.","Sauté onion, ginger, garlic, curry leaves until soft; add tomato and spices.","Add thin coconut milk, simmer to a gravy.","Add halved eggs, finish with thick coconut milk off heat."]},
+ {n:"Prawn Sukka", k:"Sungta sukka", meal:"Lunch/Dinner", min:25, diet:"non-veg", ing:["prawns","coconut","byadgi chili","tamarind","garlic","curry leaves"],
+  steps:["Grind coconut, byadgi chili, garlic, a little tamarind into a coarse masala.","Sauté onion; add the masala and cook briefly.","Add cleaned prawns; cook fast on high heat — prawns turn opaque quickly.","Toss with curry leaves; serve immediately."]},
+ {n:"Mutton Sukka", k:"Attu kari varuval", meal:"Lunch/Dinner", min:60, diet:"non-veg", ing:["mutton","coconut","black pepper","fennel","onion","curry leaves"],
+  steps:["Pressure-cook mutton with turmeric and salt until tender.","Dry-roast and grind coconut, black pepper, fennel.","Sauté onion until golden; add cooked mutton and the ground masala.","Roast on low heat, stirring, until dry and dark. Finish with curry leaves."]},
+ {n:"Chicken 65", k:"Chicken 65", meal:"Snack", min:30, diet:"non-veg", ing:["chicken","yogurt","ginger","garlic","red chili","curry leaves","corn flour"],
+  steps:["Marinate bite-size chicken in yogurt, ginger-garlic paste, red chili powder, corn flour.","Deep-fry until golden and crisp; drain.","Quick-fry curry leaves and green chili in a little oil.","Toss the fried chicken through; serve hot."]}
 ];
 
-const PANTRY = ["tomato","coconut","cabbage","green beans","potato","onion","carrot","paneer","yogurt","rice","rava","toor dal","moong dal","ragi flour","tamarind","lemon","peanuts","mixed vegetables","dosa batter","jaggery","vermicelli","rice flour"];
+const PANTRY = ["tomato","coconut","cabbage","green beans","potato","onion","carrot","paneer","yogurt","rice","rava","toor dal","moong dal","ragi flour","tamarind","lemon","peanuts","mixed vegetables","dosa batter","jaggery","vermicelli","rice flour","chicken","fish","prawns","mutton","eggs"];
 const MEALS = ["Any","Tiffin","Lunch/Dinner","Snack","Side","Sweet"];
 const TIMES = [["Any",999],["Under 20 min",20],["Under 35 min",35],["Under an hour",60]];
+const DIETS = ["Any","Veg","Non-Veg"];
 
-const state = {pantry:new Set(), meal:"Any", time:999};
+const state = {pantry:new Set(), meal:"Any", time:999, diet:"Any"};
 
 function chip(label, on, cb){
   const b=document.createElement("button");
@@ -161,16 +193,58 @@ function chip(label, on, cb){
 function render(){
   const p=document.getElementById("pantry"); p.innerHTML="";
   PANTRY.forEach(i=>p.appendChild(chip(i,state.pantry.has(i),()=>{state.pantry.has(i)?state.pantry.delete(i):state.pantry.add(i);render();})));
+  const d=document.getElementById("diets"); d.innerHTML="";
+  DIETS.forEach(x=>d.appendChild(chip(x,state.diet===x,()=>{state.diet=x;render();})));
   const m=document.getElementById("meals"); m.innerHTML="";
   MEALS.forEach(x=>m.appendChild(chip(x,state.meal===x,()=>{state.meal=x;render();})));
   const t=document.getElementById("times"); t.innerHTML="";
   TIMES.forEach(([lbl,v])=>t.appendChild(chip(lbl,state.time===v,()=>{state.time=v;render();})));
 }
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(",")[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function scanFridge(event){
+  const file=event.target.files[0];
+  const status=document.getElementById("fridgeStatus");
+  if(!file){ return; }
+  status.innerHTML='<span class="spinner"></span>Reading photo…';
+  try{
+    const b64=await fileToBase64(file);
+    status.innerHTML='<span class="spinner"></span>Scanning fridge…';
+    const resp=await fetch("/analyze-fridge",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image:b64, mimeType:file.type||"image/jpeg"})
+    });
+    const data=await resp.json();
+    if(data.error){ status.textContent=data.error; return; }
+    const found=data.ingredients||[];
+    let matched=0;
+    found.forEach(item=>{
+      const hit=PANTRY.find(p=>item.toLowerCase().includes(p.toLowerCase())||p.toLowerCase().includes(item.toLowerCase()));
+      if(hit){ state.pantry.add(hit); matched++; }
+    });
+    document.getElementById("aiInput").value = found.length ? `I have: ${found.join(", ")}` : "";
+    render();
+    status.textContent = found.length
+      ? `Found ${found.length} item${found.length>1?"s":""} — ${matched} added to your pantry above.`
+      : "Couldn't identify any ingredients — try a clearer photo.";
+  }catch(e){
+    status.textContent="Couldn't scan that photo — try again.";
+  }finally{
+    event.target.value="";
+  }
+}
 function card(r, matches){
   const d=document.createElement("div"); d.className="card";
   const matchTag = matches>0 ? `<span class="tag match">${matches} pantry match${matches>1?"es":""}</span>` : "";
+  const dietTag = r.diet==="non-veg" ? '<span class="tag nonveg">Non-Veg</span>' : '<span class="tag veg">Veg</span>';
   d.innerHTML=`<h3>${r.n}</h3><div class="native">${r.k}</div>
-    <div class="meta"><span class="tag">${r.meal}</span><span class="tag">~${r.min} min</span>${matchTag}</div>
+    <div class="meta">${dietTag}<span class="tag">${r.meal}</span><span class="tag">~${r.min} min</span>${matchTag}</div>
     <div class="ing"><b>Needs:</b> ${r.ing.join(", ")}</div>
     <details><summary>Quick method</summary><ol>${r.steps.map(s=>`<li>${s}</li>`).join("")}</ol></details>`;
   return d;
@@ -178,7 +252,8 @@ function card(r, matches){
 function suggest(){
   const res=document.getElementById("results"); res.innerHTML="";
   let list = RECIPES
-    .filter(r => (state.meal==="Any"||r.meal===state.meal) && r.min<=state.time)
+    .filter(r => (state.meal==="Any"||r.meal===state.meal) && r.min<=state.time
+      && (state.diet==="Any" || (state.diet==="Veg"&&r.diet==="veg") || (state.diet==="Non-Veg"&&r.diet==="non-veg")))
     .map(r => ({r, m:[...state.pantry].filter(p=>r.ing.includes(p)).length}));
   if(state.pantry.size>0){ list.sort((a,b)=>b.m-a.m); list=list.filter(x=>x.m>0); }
   else { list.sort((a,b)=>a.r.min-b.r.min); }
@@ -187,10 +262,11 @@ function suggest(){
 }
 function surprise(){
   const res=document.getElementById("results"); res.innerHTML="";
-  const pick=[...RECIPES].sort(()=>Math.random()-.5).slice(0,3);
+  const pool = state.diet==="Any" ? RECIPES : RECIPES.filter(r => state.diet==="Veg" ? r.diet==="veg" : r.diet==="non-veg");
+  const pick=[...pool].sort(()=>Math.random()-.5).slice(0,3);
   pick.forEach(r=>res.appendChild(card(r,0)));
 }
-function resetAll(){ state.pantry.clear(); state.meal="Any"; state.time=999; document.getElementById("results").innerHTML=""; render(); }
+function resetAll(){ state.pantry.clear(); state.meal="Any"; state.time=999; state.diet="Any"; document.getElementById("results").innerHTML=""; render(); }
 
 async function askClaude(){
   const input=document.getElementById("aiInput").value.trim();
@@ -198,20 +274,13 @@ async function askClaude(){
   if(!input){ out.innerHTML='<div class="empty">Describe what you have first.</div>'; return; }
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Thinking…'; out.innerHTML="";
   try{
-    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+    const resp=await fetch("/suggest-recipe",{
       method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-6", max_tokens:1000,
-        messages:[{role:"user",content:
-`You are a South Indian home-cooking expert. Strictly vegetarian (no eggs). The cook says: "${input}".
-Suggest exactly 2 South Indian vegetarian recipes that fit. Respond ONLY with valid JSON, no markdown fences, in this shape:
-[{"n":"Recipe name","k":"Native name","meal":"Tiffin|Lunch/Dinner|Snack|Side|Sweet","min":30,"ing":["item1","item2"],"steps":["step 1","step 2","step 3","step 4"]}]`}]
-      })
+      body:JSON.stringify({message:input})
     });
     const data=await resp.json();
-    const text=(data.content||[]).map(i=>i.text||"").join("").replace(/```json|```/g,"").trim();
-    const recipes=JSON.parse(text);
-    recipes.forEach(r=>out.appendChild(card(r,0)));
+    if(data.error){ out.innerHTML=`<div class="empty">${data.error}</div>`; return; }
+    (data.recipes||[]).forEach(r=>out.appendChild(card(r,0)));
   }catch(e){
     out.innerHTML='<div class="empty">Couldn\'t get suggestions — try rephrasing or try again.</div>';
   }finally{

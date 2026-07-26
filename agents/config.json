@@ -24,6 +24,16 @@
       "path": "/delete-conversation",
       "src": "^/delete-conversation$",
       "isIndex": false
+    },
+    {
+      "path": "/suggest-recipe",
+      "src": "^/suggest-recipe$",
+      "isIndex": false
+    },
+    {
+      "path": "/analyze-fridge",
+      "src": "^/analyze-fridge$",
+      "isIndex": false
     }
   ]
 }
