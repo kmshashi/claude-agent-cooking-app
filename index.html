@@ -62,16 +62,24 @@
     <p class="sub">Pick what's in your pantry, your diet preference, and how much time you have. The suggester ranks recipes by ingredient match &mdash; or describe what you have and let Claude invent something.</p>
   </header>
 
+  <div class="panel" style="border:2px solid var(--turmeric); background:#FFFBF0;">
+    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+      <div style="font-size:40px; line-height:1;">📷</div>
+      <div style="flex:1; min-width:220px;">
+        <h2 style="text-transform:none; font-size:18px; letter-spacing:normal; color:var(--leaf-dark); font-weight:700; margin-bottom:4px;">Snap your fridge</h2>
+        <p style="font-size:14px; color:var(--muted); margin:0;">Point your camera at what's inside &mdash; we'll auto-fill your pantry with what we see.</p>
+      </div>
+      <label for="fridgePhoto" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:var(--turmeric); color:#3A2B05; border:none; border-radius:10px; padding:13px 24px; font-size:15px; font-weight:700; white-space:nowrap;">
+        Take a photo
+      </label>
+      <input type="file" accept="image/*" capture="environment" id="fridgePhoto" style="display:none;" onchange="scanFridge(event)">
+    </div>
+    <div id="fridgeStatus" style="margin-top:10px; font-size:13px; color:var(--muted);"></div>
+  </div>
+
   <div class="panel">
     <h2>In your pantry</h2>
     <div class="chips" id="pantry"></div>
-    <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-      <label for="fridgePhoto" class="ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; margin:0;">
-        📷 Scan your fridge
-      </label>
-      <input type="file" accept="image/*" capture="environment" id="fridgePhoto" style="display:none;" onchange="scanFridge(event)">
-      <span id="fridgeStatus" style="font-size:13px; color:var(--muted);"></span>
-    </div>
   </div>
 
   <div class="panel">
