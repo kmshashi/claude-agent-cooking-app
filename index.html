@@ -184,6 +184,7 @@ const TIMES = [["Any",999],["Under 20 min",20],["Under 35 min",35],["Under an ho
 const DIETS = ["Any","Veg","Non-Veg"];
 
 const state = {pantry:new Set(), meal:"Any", time:999, diet:"Any"};
+let EXTRA_PANTRY = []; // ingredients discovered via fridge scan, not in the base PANTRY list
 
 function chip(label, on, cb){
   const b=document.createElement("button");
@@ -192,7 +193,7 @@ function chip(label, on, cb){
 }
 function render(){
   const p=document.getElementById("pantry"); p.innerHTML="";
-  PANTRY.forEach(i=>p.appendChild(chip(i,state.pantry.has(i),()=>{state.pantry.has(i)?state.pantry.delete(i):state.pantry.add(i);render();})));
+  [...PANTRY, ...EXTRA_PANTRY].forEach(i=>p.appendChild(chip(i,state.pantry.has(i),()=>{state.pantry.has(i)?state.pantry.delete(i):state.pantry.add(i);render();})));
   const d=document.getElementById("diets"); d.innerHTML="";
   DIETS.forEach(x=>d.appendChild(chip(x,state.diet===x,()=>{state.diet=x;render();})));
   const m=document.getElementById("meals"); m.innerHTML="";
@@ -223,15 +224,22 @@ async function scanFridge(event){
     const data=await resp.json();
     if(data.error){ status.textContent=data.error; return; }
     const found=data.ingredients||[];
-    let matched=0;
     found.forEach(item=>{
-      const hit=PANTRY.find(p=>item.toLowerCase().includes(p.toLowerCase())||p.toLowerCase().includes(item.toLowerCase()));
-      if(hit){ state.pantry.add(hit); matched++; }
+      const norm=item.trim().toLowerCase();
+      if(!norm) return;
+      const known=[...PANTRY, ...EXTRA_PANTRY];
+      const hit=known.find(p=>norm.includes(p)||p.includes(norm));
+      if(hit){
+        state.pantry.add(hit);
+      }else{
+        EXTRA_PANTRY.push(norm);
+        state.pantry.add(norm);
+      }
     });
     document.getElementById("aiInput").value = found.length ? `I have: ${found.join(", ")}` : "";
     render();
     status.textContent = found.length
-      ? `Found ${found.length} item${found.length>1?"s":""} — ${matched} added to your pantry above.`
+      ? `Found and added: ${found.join(", ")}.`
       : "Couldn't identify any ingredients — try a clearer photo.";
   }catch(e){
     status.textContent="Couldn't scan that photo — try again.";
